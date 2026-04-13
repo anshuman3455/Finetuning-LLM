@@ -1,0 +1,8 @@
+myenv/
+venv/
+*.gguf
+*.bin
+*.pth
+*.zip
+__pycache__/
+.DS_Store
