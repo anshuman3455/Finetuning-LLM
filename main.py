@@ -46,18 +46,18 @@ def prepare_data():
         for row in formatted_data:
             f.write(json.dumps(row) + "\n")
 
-    print(f"✅ Dataset saved at {file_path}")
-    print(f"✅ Total samples: {len(formatted_data)}")
+    print(f"Dataset saved at {file_path}")
+    print(f"Total samples: {len(formatted_data)}")
 
 
 # STEP 2: TRAIN MODEL
 os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
 def train_model():
     if os.path.exists(MODEL_DIR):
-        print("✅ Model already trained")
+        print(" Model already trained")
         return
 
-    print("🔥 Training model...")
+    print(" Training model...")
 
     from transformers import AutoModelForCausalLM, AutoTokenizer, TrainingArguments, Trainer
     from peft import LoraConfig, get_peft_model
@@ -110,11 +110,11 @@ def train_model():
     )
 
     def tokenize(example):
-        texts = example["text"]   # list of strings
+        texts = example["text"]
 
-        all_input_ids = []
-        all_attention_masks = []
-        all_labels = []
+        input_ids = []
+        attention_masks = []
+        labels_list = []
 
         for text in texts:
             tokens = tokenizer(
@@ -126,32 +126,29 @@ def train_model():
 
             labels = tokens["input_ids"].copy()
 
-            assistant_token = "<|assistant|>"
-            assistant_start = text.find(assistant_token)
+            # MASK USER PART
+            if "<|assistant|>" in text:
+                split_text = text.split("<|assistant|>")[0] + "<|assistant|>"
 
-            if assistant_start != -1:
-                prefix = text[:assistant_start + len(assistant_token)]
-
-                prefix_tokens = tokenizer(
-                    prefix,
+                prefix_ids = tokenizer(
+                    split_text,
                     truncation=True,
                     max_length=512
                 )["input_ids"]
 
-                prefix_len = len(prefix_tokens)
+                prefix_len = len(prefix_ids)
 
                 labels[:prefix_len] = [-100] * prefix_len
 
-            all_input_ids.append(tokens["input_ids"])
-            all_attention_masks.append(tokens["attention_mask"])
-            all_labels.append(labels)
+            input_ids.append(tokens["input_ids"])
+            attention_masks.append(tokens["attention_mask"])
+            labels_list.append(labels)
 
         return {
-            "input_ids": all_input_ids,
-            "attention_mask": all_attention_masks,
-            "labels": all_labels,
+            "input_ids": input_ids,
+            "attention_mask": attention_masks,
+            "labels": labels_list
         }
-
 
     dataset = dataset.map(tokenize, batched=True)
 
@@ -173,7 +170,7 @@ def train_model():
 
     model.save_pretrained("model/lora")
 
-    print("✅ Training complete")
+    print("Training complete")
 
 # STEP 3.1: ADD SPECIAL TOKENS
 def add_special_tokens():
@@ -191,15 +188,15 @@ def add_special_tokens():
     tokenizer.save_pretrained(MODEL_DIR)
     model.save_pretrained(MODEL_DIR)
 
-    print("✅ Special tokens added and embeddings resized")
+    print("Special tokens added and embeddings resized")
 
 # STEP 3: MERGE MODEL
 def merge_model():
     if os.path.exists(MODEL_DIR):
-        print("✅ Model already merged")
+        print(" Model already merged")
         return
 
-    print("🔗 Merging LoRA...")
+    print(" Merging LoRA...")
 
     from transformers import AutoModelForCausalLM
     from peft import PeftModel
@@ -213,12 +210,12 @@ def merge_model():
 
     model.save_pretrained(MODEL_DIR)
 
-    print("✅ Merge complete")
+    print(" Merge complete")
 
 # STEP 4: GGUF CONVERSION
 def convert_to_gguf():
     if os.path.exists(GGUF_PATH):
-        print("✅ GGUF already exists")
+        print(" GGUF already exists")
         return
 
     print("⚡ Converting to GGUF...")
@@ -234,37 +231,39 @@ def convert_to_gguf():
 # STEP 5: START LLM SERVER
 
 def start_llm_server():
-    print("🚀 Starting LLM server...")
+    print(" Starting LLM server...")
 
     subprocess.Popen([
-        "uvicorn",
+        "python", "-m", "uvicorn",
         "server:app",
         "--host", "127.0.0.1",
-        "--port", "8002"   
+        "--port", "8002"
     ])
 
 # STEP 6: START MCP SERVER
 
 def start_mcp():
-    print("🧰 Starting MCP server...")
+    print("Starting MCP server...")
 
     subprocess.Popen([
+        "python",
+        "-m",
         "uvicorn",
         "mcp.server:app",
         "--host", "127.0.0.1",
-        "--port", "8000"   # ✅ MCP MUST BE HERE
-    ])
+        "--port", "8000"
+    ], cwd=os.getcwd())
 
 # STEP 7: START UI
 
 def start_ui():
-    print("🎨 Starting UI...")
+    print(" Starting UI...")
 
     subprocess.Popen(["streamlit", "run", "ui/app.py"])
 
 # STEP 8: EVALUATION
 def evaluate():
-    print("📊 Running evaluation...")
+    print("Running evaluation...")
 
     # simple evaluation
     from transformers import pipeline, AutoTokenizer
@@ -290,7 +289,6 @@ def main():
     train_model()
     merge_model()
     add_special_tokens()   
-    # convert_to_gguf()
 
     evaluate()
 
@@ -301,7 +299,7 @@ def main():
 
     start_ui()
 
-    print("✅ FULL SYSTEM RUNNING")
+    print(" FULL SYSTEM RUNNING")
     print(f"⏱ Total setup time: {time.time() - start:.2f} sec")
 
 if __name__ == "__main__":
