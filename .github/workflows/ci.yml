@@ -12,35 +12,35 @@ runs-on: ubuntu-latest
 
 ```
 steps:
-- name: 📥 Checkout code
+- name:  Checkout code
   uses: actions/checkout@v3
 
-- name: 🐍 Setup Python
+- name: Setup Python
   uses: actions/setup-python@v4
   with:
     python-version: "3.11"
 
-- name: 📦 Install dependencies
+- name:  Install dependencies
   run: |
     python -m pip install --upgrade pip
     pip install -r requirements.txt
 
-- name: 🔍 Lint check
+- name:  Lint check
   run: |
     pip install flake8
     flake8 . --exclude=myenv --max-line-length=120
 
-- name: 🧪 Run tests
+- name:  Run tests
   run: |
     pip install pytest
     pytest || true   # don't fail if no tests yet
 
-- name: 🏗 Build check
+- name:  Build check
   run: |
     python -m py_compile main.py
     python -m py_compile server.py
 
-- name: 🐳 Docker build (optional)
+- name:  Docker build (optional)
   run: |
     docker build -t ai-mcp-assistant . || true
 ```
